@@ -29,7 +29,7 @@ const COLUMNS: { id: ColumnType; title: string }[] = [
 
 export function KanbanBoard() {
   const { data: cards, error, mutate, isLoading } = useSWR<Card[]>('/api/cards', fetcher, {
-    refreshInterval: 3000, // Atualiza a cada 3 segundos para sync com outros usuarios
+    refreshInterval: 3000,
   })
   
   const [activeCard, setActiveCard] = useState<Card | null>(null)
@@ -52,9 +52,9 @@ export function KanbanBoard() {
     })
   )
 
-  const getCardsByColumn = useCallback((column: ColumnType) => {
+  const getCardsByColumn = useCallback((columnId: ColumnType) => {
     return localCards
-      .filter(card => card.column === column)
+      .filter(card => card.column_id === columnId)
       .sort((a, b) => a.position - b.position)
   }, [localCards])
 
@@ -70,25 +70,23 @@ export function KanbanBoard() {
     const { active, over } = event
     if (!over) return
 
-    const activeId = active.id as number
+    const activeId = active.id as string
     const overId = over.id
 
     const activeCard = localCards.find(c => c.id === activeId)
     if (!activeCard) return
 
-    // Verifica se estamos sobre uma coluna ou um card
     const overCard = localCards.find(c => c.id === overId)
-    const overColumn = overCard ? overCard.column : (overId as ColumnType)
+    const overColumn = overCard ? overCard.column_id : (overId as ColumnType)
 
-    if (activeCard.column !== overColumn) {
+    if (activeCard.column_id !== overColumn) {
       setLocalCards(prev => {
-        const newCards = prev.map(card => {
+        return prev.map(card => {
           if (card.id === activeId) {
-            return { ...card, column: overColumn }
+            return { ...card, column_id: overColumn }
           }
           return card
         })
-        return newCards
       })
     }
   }
@@ -99,19 +97,17 @@ export function KanbanBoard() {
 
     if (!over) return
 
-    const activeId = active.id as number
+    const activeId = active.id as string
     const overId = over.id
 
     const activeCard = localCards.find(c => c.id === activeId)
     if (!activeCard) return
 
-    // Determina a coluna de destino
     const overCard = localCards.find(c => c.id === overId)
-    const targetColumn = overCard ? overCard.column : (overId as ColumnType)
+    const targetColumn = overCard ? overCard.column_id : (overId as ColumnType)
 
-    // Calcula a nova posicao
     const columnCards = localCards
-      .filter(c => c.column === targetColumn && c.id !== activeId)
+      .filter(c => c.column_id === targetColumn && c.id !== activeId)
       .sort((a, b) => a.position - b.position)
 
     let newPosition: number
@@ -122,21 +118,19 @@ export function KanbanBoard() {
       newPosition = columnCards.length
     }
 
-    // Atualiza localmente primeiro (optimistic update)
     setLocalCards(prev => {
       const newCards = [...prev]
       const cardIndex = newCards.findIndex(c => c.id === activeId)
       if (cardIndex !== -1) {
         newCards[cardIndex] = {
           ...newCards[cardIndex],
-          column: targetColumn,
+          column_id: targetColumn,
           position: newPosition,
         }
       }
       return newCards
     })
 
-    // Envia para o servidor
     try {
       const response = await fetch(`/api/cards/${activeId}/move`, {
         method: 'POST',
@@ -154,16 +148,16 @@ export function KanbanBoard() {
       }
     } catch (error) {
       console.error('Error moving card:', error)
-      mutate() // Recarrega do servidor em caso de erro
+      mutate()
     }
   }
 
-  const handleAddCard = async (title: string, column: ColumnType) => {
+  const handleAddCard = async (title: string, columnId: ColumnType) => {
     try {
       const response = await fetch('/api/cards', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, column }),
+        body: JSON.stringify({ title, column: columnId }),
       })
       
       if (response.ok) {
@@ -176,8 +170,7 @@ export function KanbanBoard() {
     }
   }
 
-  const handleDeleteCard = async (id: number) => {
-    // Optimistic update
+  const handleDeleteCard = async (id: string) => {
     setLocalCards(prev => prev.filter(c => c.id !== id))
     
     try {
@@ -189,8 +182,7 @@ export function KanbanBoard() {
     }
   }
 
-  const handleImagePaste = async (cardId: number, imageData: string) => {
-    // Optimistic update
+  const handleImagePaste = async (cardId: string, imageData: string) => {
     setLocalCards(prev => prev.map(c => 
       c.id === cardId ? { ...c, image_data: imageData } : c
     ))

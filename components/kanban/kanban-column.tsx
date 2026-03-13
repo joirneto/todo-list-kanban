@@ -14,8 +14,8 @@ interface KanbanColumnProps {
   title: string
   cards: Card[]
   onAddCard: (title: string, column: ColumnType) => void
-  onDeleteCard: (id: number) => void
-  onImagePaste: (id: number, imageData: string) => void
+  onDeleteCard: (id: string) => void
+  onImagePaste: (id: string, imageData: string) => void
 }
 
 export function KanbanColumn({ 

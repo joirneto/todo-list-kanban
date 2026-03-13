@@ -3,7 +3,7 @@ import { getAllCards, createCard } from '@/lib/db'
 
 export async function GET() {
   try {
-    const cards = getAllCards()
+    const cards = await getAllCards()
     return NextResponse.json(cards)
   } catch (error) {
     console.error('Error fetching cards:', error)
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Title is required' }, { status: 400 })
     }
     
-    const card = createCard(title.trim(), column, image_data)
+    const card = await createCard(title.trim(), column, image_data)
     return NextResponse.json(card, { status: 201 })
   } catch (error) {
     console.error('Error creating card:', error)

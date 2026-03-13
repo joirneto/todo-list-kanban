@@ -7,11 +7,6 @@ export async function POST(
 ) {
   try {
     const { id } = await params
-    const cardId = parseInt(id, 10)
-    
-    if (isNaN(cardId)) {
-      return NextResponse.json({ error: 'Invalid card ID' }, { status: 400 })
-    }
     
     const body = await request.json()
     const { targetColumn, newPosition } = body
@@ -23,8 +18,8 @@ export async function POST(
       )
     }
     
-    moveCard(cardId, targetColumn, newPosition)
-    const cards = getAllCards()
+    await moveCard(id, targetColumn, newPosition)
+    const cards = await getAllCards()
     
     return NextResponse.json(cards)
   } catch (error) {

@@ -10,8 +10,8 @@ import { useRef, useState } from 'react'
 
 interface KanbanCardProps {
   card: Card
-  onDelete: (id: number) => void
-  onImagePaste: (id: number, imageData: string) => void
+  onDelete: (id: string) => void
+  onImagePaste: (id: string, imageData: string) => void
 }
 
 export function KanbanCard({ card, onDelete, onImagePaste }: KanbanCardProps) {

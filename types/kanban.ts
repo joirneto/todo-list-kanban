@@ -1,8 +1,8 @@
 export interface Card {
-  id: number
+  id: string
   title: string
   description: string | null
-  column: 'todo' | 'done'
+  column_id: 'todo' | 'done'
   position: number
   image_data: string | null
   created_at: string

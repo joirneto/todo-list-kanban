@@ -7,14 +7,9 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params
-    const cardId = parseInt(id, 10)
-    
-    if (isNaN(cardId)) {
-      return NextResponse.json({ error: 'Invalid card ID' }, { status: 400 })
-    }
     
     const body = await request.json()
-    const card = updateCard(cardId, body)
+    const card = await updateCard(id, body)
     
     if (!card) {
       return NextResponse.json({ error: 'Card not found' }, { status: 404 })
@@ -33,13 +28,8 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
-    const cardId = parseInt(id, 10)
     
-    if (isNaN(cardId)) {
-      return NextResponse.json({ error: 'Invalid card ID' }, { status: 400 })
-    }
-    
-    const success = deleteCard(cardId)
+    const success = await deleteCard(id)
     
     if (!success) {
       return NextResponse.json({ error: 'Card not found' }, { status: 404 })

@@ -1,170 +1,141 @@
-import Database from 'better-sqlite3'
-import path from 'path'
+import { neon } from '@neondatabase/serverless'
 
-const dbPath = path.join(process.cwd(), 'kanban.db')
-const db = new Database(dbPath)
-
-// Inicializa as tabelas
-db.exec(`
-  CREATE TABLE IF NOT EXISTS cards (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    description TEXT,
-    column TEXT NOT NULL DEFAULT 'todo',
-    position INTEGER NOT NULL DEFAULT 0,
-    image_data TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  )
-`)
+const sql = neon(process.env.DATABASE_URL!)
 
 export interface Card {
-  id: number
+  id: string
   title: string
   description: string | null
-  column: 'todo' | 'done'
+  column_id: 'todo' | 'done'
   position: number
   image_data: string | null
   created_at: string
   updated_at: string
 }
 
-export function getAllCards(): Card[] {
-  const stmt = db.prepare('SELECT * FROM cards ORDER BY position ASC')
-  return stmt.all() as Card[]
+export async function getAllCards(): Promise<Card[]> {
+  const cards = await sql`
+    SELECT * FROM cards ORDER BY column_id, position ASC
+  `
+  return cards as Card[]
 }
 
-export function getCardsByColumn(column: string): Card[] {
-  const stmt = db.prepare('SELECT * FROM cards WHERE column = ? ORDER BY position ASC')
-  return stmt.all(column) as Card[]
+export async function getCardsByColumn(columnId: string): Promise<Card[]> {
+  const cards = await sql`
+    SELECT * FROM cards WHERE column_id = ${columnId} ORDER BY position ASC
+  `
+  return cards as Card[]
 }
 
-export function createCard(title: string, column: string = 'todo', imageData?: string): Card {
-  const maxPositionStmt = db.prepare('SELECT COALESCE(MAX(position), -1) + 1 as nextPos FROM cards WHERE column = ?')
-  const { nextPos } = maxPositionStmt.get(column) as { nextPos: number }
+export async function createCard(title: string, columnId: string = 'todo', imageData?: string): Promise<Card> {
+  const id = crypto.randomUUID()
   
-  const stmt = db.prepare(`
-    INSERT INTO cards (title, column, position, image_data) 
-    VALUES (?, ?, ?, ?)
-  `)
-  const result = stmt.run(title, column, nextPos, imageData || null)
-  
-  const getStmt = db.prepare('SELECT * FROM cards WHERE id = ?')
-  return getStmt.get(result.lastInsertRowid) as Card
+  const maxPosResult = await sql`
+    SELECT COALESCE(MAX(position), -1) as max_pos FROM cards WHERE column_id = ${columnId}
+  `
+  const position = (maxPosResult[0]?.max_pos ?? -1) + 1
+
+  const result = await sql`
+    INSERT INTO cards (id, title, column_id, position, image_data)
+    VALUES (${id}, ${title}, ${columnId}, ${position}, ${imageData || null})
+    RETURNING *
+  `
+  return result[0] as Card
 }
 
-export function updateCard(id: number, updates: Partial<Omit<Card, 'id' | 'created_at'>>): Card | null {
-  const fields: string[] = []
-  const values: unknown[] = []
-  
-  if (updates.title !== undefined) {
-    fields.push('title = ?')
-    values.push(updates.title)
-  }
-  if (updates.description !== undefined) {
-    fields.push('description = ?')
-    values.push(updates.description)
-  }
-  if (updates.column !== undefined) {
-    fields.push('column = ?')
-    values.push(updates.column)
-  }
-  if (updates.position !== undefined) {
-    fields.push('position = ?')
-    values.push(updates.position)
-  }
-  if (updates.image_data !== undefined) {
-    fields.push('image_data = ?')
-    values.push(updates.image_data)
-  }
-  
-  if (fields.length === 0) return null
-  
-  fields.push('updated_at = CURRENT_TIMESTAMP')
-  values.push(id)
-  
-  const stmt = db.prepare(`UPDATE cards SET ${fields.join(', ')} WHERE id = ?`)
-  stmt.run(...values)
-  
-  const getStmt = db.prepare('SELECT * FROM cards WHERE id = ?')
-  return getStmt.get(id) as Card
+export async function updateCard(
+  id: string,
+  updates: Partial<{
+    title: string
+    description: string
+    image_data: string
+  }>
+): Promise<Card | null> {
+  const card = await getCardById(id)
+  if (!card) return null
+
+  const result = await sql`
+    UPDATE cards 
+    SET 
+      title = ${updates.title ?? card.title},
+      description = ${updates.description ?? card.description},
+      image_data = ${updates.image_data ?? card.image_data},
+      updated_at = NOW()
+    WHERE id = ${id}
+    RETURNING *
+  `
+  return result[0] as Card
 }
 
-export function moveCard(cardId: number, targetColumn: string, newPosition: number): void {
-  const transaction = db.transaction(() => {
-    // Pega o card atual
-    const cardStmt = db.prepare('SELECT * FROM cards WHERE id = ?')
-    const card = cardStmt.get(cardId) as Card | undefined
-    if (!card) return
-    
-    const oldColumn = card.column
-    const oldPosition = card.position
-    
-    if (oldColumn === targetColumn) {
-      // Movendo dentro da mesma coluna
-      if (oldPosition < newPosition) {
-        // Movendo para baixo
-        const updateStmt = db.prepare(`
-          UPDATE cards SET position = position - 1 
-          WHERE column = ? AND position > ? AND position <= ?
-        `)
-        updateStmt.run(targetColumn, oldPosition, newPosition)
-      } else if (oldPosition > newPosition) {
-        // Movendo para cima
-        const updateStmt = db.prepare(`
-          UPDATE cards SET position = position + 1 
-          WHERE column = ? AND position >= ? AND position < ?
-        `)
-        updateStmt.run(targetColumn, newPosition, oldPosition)
-      }
-    } else {
-      // Movendo para outra coluna
-      // Atualiza posições na coluna antiga
-      const updateOldStmt = db.prepare(`
-        UPDATE cards SET position = position - 1 
-        WHERE column = ? AND position > ?
-      `)
-      updateOldStmt.run(oldColumn, oldPosition)
-      
-      // Abre espaço na nova coluna
-      const updateNewStmt = db.prepare(`
-        UPDATE cards SET position = position + 1 
-        WHERE column = ? AND position >= ?
-      `)
-      updateNewStmt.run(targetColumn, newPosition)
-    }
-    
-    // Atualiza o card
-    const finalStmt = db.prepare(`
-      UPDATE cards SET column = ?, position = ?, updated_at = CURRENT_TIMESTAMP 
-      WHERE id = ?
-    `)
-    finalStmt.run(targetColumn, newPosition, cardId)
-  })
-  
-  transaction()
-}
-
-export function deleteCard(id: number): boolean {
-  const cardStmt = db.prepare('SELECT * FROM cards WHERE id = ?')
-  const card = cardStmt.get(id) as Card | undefined
+export async function deleteCard(id: string): Promise<boolean> {
+  const card = await getCardById(id)
   if (!card) return false
-  
-  const transaction = db.transaction(() => {
-    // Remove o card
-    const deleteStmt = db.prepare('DELETE FROM cards WHERE id = ?')
-    deleteStmt.run(id)
-    
-    // Atualiza posições
-    const updateStmt = db.prepare(`
-      UPDATE cards SET position = position - 1 
-      WHERE column = ? AND position > ?
-    `)
-    updateStmt.run(card.column, card.position)
-  })
-  
-  transaction()
+
+  await sql`DELETE FROM cards WHERE id = ${id}`
+
+  // Update positions in the column
+  await sql`
+    UPDATE cards 
+    SET position = position - 1 
+    WHERE column_id = ${card.column_id} AND position > ${card.position}
+  `
+
   return true
 }
 
-export default db
+export async function moveCard(cardId: string, targetColumn: string, newPosition: number): Promise<void> {
+  const card = await getCardById(cardId)
+  if (!card) return
+
+  const oldColumn = card.column_id
+  const oldPosition = card.position
+
+  if (oldColumn === targetColumn) {
+    // Moving within same column
+    if (oldPosition < newPosition) {
+      await sql`
+        UPDATE cards 
+        SET position = position - 1 
+        WHERE column_id = ${targetColumn} 
+          AND position > ${oldPosition} 
+          AND position <= ${newPosition}
+      `
+    } else if (oldPosition > newPosition) {
+      await sql`
+        UPDATE cards 
+        SET position = position + 1 
+        WHERE column_id = ${targetColumn} 
+          AND position >= ${newPosition} 
+          AND position < ${oldPosition}
+      `
+    }
+  } else {
+    // Moving to different column
+    await sql`
+      UPDATE cards 
+      SET position = position - 1 
+      WHERE column_id = ${oldColumn} 
+        AND position > ${oldPosition}
+    `
+
+    await sql`
+      UPDATE cards 
+      SET position = position + 1 
+      WHERE column_id = ${targetColumn} 
+        AND position >= ${newPosition}
+    `
+  }
+
+  await sql`
+    UPDATE cards 
+    SET column_id = ${targetColumn}, position = ${newPosition}, updated_at = NOW()
+    WHERE id = ${cardId}
+  `
+}
+
+export async function getCardById(id: string): Promise<Card | null> {
+  const result = await sql`
+    SELECT * FROM cards WHERE id = ${id}
+  `
+  return (result[0] as Card) || null
+}
