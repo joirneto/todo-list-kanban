@@ -7,8 +7,8 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'Kanban Board',
-  description: 'Quadro Kanban com suporte a imagens e persistencia',
+  title: 'Teste Dict Bacen - Vamos passar!',
+  description: 'Quadro de acompanhamento do Teste Dict Bacen com Pix',
   generator: 'v0.app',
   icons: {
     icon: [
