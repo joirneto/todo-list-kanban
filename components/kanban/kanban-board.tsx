@@ -1,30 +1,30 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { Spinner } from '@/components/ui/spinner'
+import { Card, ColumnType } from '@/types/kanban'
 import {
-  DndContext,
-  DragOverlay,
   closestCorners,
+  DndContext,
+  DragEndEvent,
+  DragOverEvent,
+  DragOverlay,
+  DragStartEvent,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
-  DragStartEvent,
-  DragEndEvent,
-  DragOverEvent,
 } from '@dnd-kit/core'
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
+import { useCallback, useEffect, useState } from 'react'
 import useSWR from 'swr'
-import { Card, ColumnType } from '@/types/kanban'
-import { KanbanColumn } from './kanban-column'
 import { KanbanCard } from './kanban-card'
-import { Spinner } from '@/components/ui/spinner'
+import { KanbanColumn } from './kanban-column'
 
 const fetcher = (url: string) => fetch(url).then(res => res.json())
 
 const COLUMNS: { id: ColumnType; title: string }[] = [
   { id: 'todo', title: 'A Fazer' },
-  { id: 'done', title: 'Concluido' },
+  { id: 'done', title: 'Concluído' },
 ]
 
 export function KanbanBoard() {
