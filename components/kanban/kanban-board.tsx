@@ -152,12 +152,12 @@ export function KanbanBoard() {
     }
   }
 
-  const handleAddCard = async (title: string, columnId: ColumnType) => {
+  const handleAddCard = async (title: string, columnId: ColumnType, color: string) => {
     try {
       const response = await fetch('/api/cards', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, column: columnId }),
+        body: JSON.stringify({ title, column: columnId, color }),
       })
       
       if (response.ok) {
@@ -224,7 +224,7 @@ export function KanbanBoard() {
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex gap-6 p-6 overflow-x-auto">
+      <div id="kanban-board" className="flex gap-6 p-6 items-stretch">
         {COLUMNS.map(column => (
           <KanbanColumn
             key={column.id}

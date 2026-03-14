@@ -3,7 +3,7 @@
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { Plus } from 'lucide-react'
-import { Card, ColumnType } from '@/types/kanban'
+import { Card, ColumnType, CARD_COLORS } from '@/types/kanban'
 import { KanbanCard } from './kanban-card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,7 +13,7 @@ interface KanbanColumnProps {
   id: ColumnType
   title: string
   cards: Card[]
-  onAddCard: (title: string, column: ColumnType) => void
+  onAddCard: (title: string, column: ColumnType, color: string) => void
   onDeleteCard: (id: string) => void
   onImagePaste: (id: string, imageData: string) => void
 }
@@ -28,6 +28,7 @@ export function KanbanColumn({
 }: KanbanColumnProps) {
   const [isAdding, setIsAdding] = useState(false)
   const [newCardTitle, setNewCardTitle] = useState('')
+  const [selectedColor, setSelectedColor] = useState(CARD_COLORS[0].value)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const { setNodeRef, isOver } = useDroppable({
@@ -46,8 +47,9 @@ export function KanbanColumn({
 
   const handleAddCard = () => {
     if (newCardTitle.trim()) {
-      onAddCard(newCardTitle.trim(), id)
+      onAddCard(newCardTitle.trim(), id, selectedColor)
       setNewCardTitle('')
+      setSelectedColor(CARD_COLORS[0].value)
       setIsAdding(false)
     }
   }
@@ -58,6 +60,7 @@ export function KanbanColumn({
     } else if (e.key === 'Escape') {
       setIsAdding(false)
       setNewCardTitle('')
+      setSelectedColor(CARD_COLORS[0].value)
     }
   }
 
@@ -99,7 +102,7 @@ export function KanbanColumn({
 
       <div 
         ref={setNodeRef}
-        className="flex-1 p-3 min-h-[200px] max-h-[calc(100vh-280px)] overflow-y-auto"
+        className="p-3 min-h-[100px]"
       >
         <SortableContext 
           items={cards.map(c => c.id)} 
@@ -126,7 +129,7 @@ export function KanbanColumn({
 
       <div className="p-3 border-t border-border/50">
         {isAdding ? (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
             <Input
               ref={inputRef}
               placeholder="Titulo do card..."
@@ -135,6 +138,30 @@ export function KanbanColumn({
               onKeyDown={handleKeyDown}
               className="bg-background"
             />
+            
+            {/* Seletor de cor */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs text-muted-foreground font-medium">
+                Cor do card:
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {CARD_COLORS.map((color) => (
+                  <button
+                    key={color.value}
+                    type="button"
+                    className={`w-7 h-7 rounded-md border-2 transition-all ${
+                      selectedColor === color.value 
+                        ? 'border-primary ring-2 ring-primary/30 scale-110' 
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                    style={{ backgroundColor: color.value }}
+                    onClick={() => setSelectedColor(color.value)}
+                    title={color.name}
+                  />
+                ))}
+              </div>
+            </div>
+            
             <div className="flex gap-2">
               <Button 
                 size="sm" 
@@ -149,6 +176,7 @@ export function KanbanColumn({
                 onClick={() => {
                   setIsAdding(false)
                   setNewCardTitle('')
+                  setSelectedColor(CARD_COLORS[0].value)
                 }}
               >
                 Cancelar

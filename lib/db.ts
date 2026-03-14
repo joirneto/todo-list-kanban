@@ -9,6 +9,7 @@ export interface Card {
   column_id: 'todo' | 'done'
   position: number
   image_data: string | null
+  color: string | null
   created_at: string
   updated_at: string
 }
@@ -27,7 +28,7 @@ export async function getCardsByColumn(columnId: string): Promise<Card[]> {
   return cards as Card[]
 }
 
-export async function createCard(title: string, columnId: string = 'todo', imageData?: string): Promise<Card> {
+export async function createCard(title: string, columnId: string = 'todo', imageData?: string, color?: string): Promise<Card> {
   const id = crypto.randomUUID()
   
   const maxPosResult = await sql`
@@ -36,8 +37,8 @@ export async function createCard(title: string, columnId: string = 'todo', image
   const position = (maxPosResult[0]?.max_pos ?? -1) + 1
 
   const result = await sql`
-    INSERT INTO cards (id, title, column_id, position, image_data)
-    VALUES (${id}, ${title}, ${columnId}, ${position}, ${imageData || null})
+    INSERT INTO cards (id, title, column_id, position, image_data, color)
+    VALUES (${id}, ${title}, ${columnId}, ${position}, ${imageData || null}, ${color || null})
     RETURNING *
   `
   return result[0] as Card

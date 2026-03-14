@@ -3,8 +3,8 @@
 import { KanbanBoard } from '@/components/kanban/kanban-board'
 import { Button } from '@/components/ui/button'
 import { FileDown } from 'lucide-react'
-import Image from 'next/image'
 import { useRef } from 'react'
+import Image from 'next/image'
 
 export default function Home() {
   const boardRef = useRef<HTMLDivElement>(null)
@@ -13,22 +13,16 @@ export default function Home() {
     if (!boardRef.current) return
 
     const { default: jsPDF } = await import('jspdf')
-    const { default: html2canvas } = await import('html2canvas-pro')
+    const { default: html2canvas } = await import('html2canvas')
 
-    const element = boardRef.current
-
-    const canvas = await html2canvas(element, {
+    const canvas = await html2canvas(boardRef.current, {
       scale: 2,
       useCORS: true,
       allowTaint: true,
       backgroundColor: '#ffffff',
-      logging: false,
-      windowWidth: element.scrollWidth,
-      windowHeight: element.scrollHeight,
     })
 
     const imgData = canvas.toDataURL('image/png')
-
     const pdf = new jsPDF({
       orientation: 'landscape',
       unit: 'px',
@@ -83,7 +77,7 @@ export default function Home() {
           </div>
         </div>
       </header>
-
+      
       <div className="max-w-7xl mx-auto" ref={boardRef}>
         <KanbanBoard />
       </div>
